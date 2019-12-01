@@ -16,13 +16,11 @@ public class BinlogEntryToMessageConverter implements BinlogEntryToEventConverte
     Map<String,String> headers=null;
     BinlogFileOffset binlogFileOffset=null;
 
-
     destination=(String)binlogEntry.getColumn("destination");
     Object payloadColumn=binlogEntry.getColumn("payload");
    try {
     if (payloadColumn instanceof byte[]){
-      byte[] temp=(byte[]) payloadColumn;
-      payload=new String(temp,"UTF-8");
+      payload=new String((byte[]) payloadColumn,"UTF-8");
     }else {
     payload= (String) payloadColumn;
     }
@@ -30,8 +28,6 @@ public class BinlogEntryToMessageConverter implements BinlogEntryToEventConverte
 
     headers=JSonMapper.fromJson((String)binlogEntry.getColumn("headers"), Map.class);
     binlogFileOffset=binlogEntry.getBinlogFileOffset();
-
-
 
     return new MessageWithDestination(destination, payload, headers, binlogFileOffset);
   }
