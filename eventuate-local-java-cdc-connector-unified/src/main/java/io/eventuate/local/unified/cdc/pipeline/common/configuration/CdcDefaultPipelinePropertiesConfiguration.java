@@ -3,6 +3,7 @@ package io.eventuate.local.unified.cdc.pipeline.common.configuration;
 import io.eventuate.local.common.EventuateConfigurationProperties;
 import io.eventuate.local.unified.cdc.pipeline.common.DefaultSourceTableNameResolver;
 import io.eventuate.local.unified.cdc.pipeline.common.properties.CdcPipelineProperties;
+import io.eventuate.local.unified.cdc.pipeline.common.properties.PoolConfigProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,10 @@ public class CdcDefaultPipelinePropertiesConfiguration {
 
   @Autowired
   protected EventuateConfigurationProperties eventuateConfigurationProperties;
+@Bean
+  public PoolConfigProperties druidConfigProperties(){
+  return new PoolConfigProperties();
+}
 
   @Bean
   public CdcPipelineProperties cdcPipelineProperties(DefaultSourceTableNameResolver sourceTableNameResolver) {

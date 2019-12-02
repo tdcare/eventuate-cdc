@@ -1,6 +1,7 @@
 package io.eventuate.local.polling;
 
 import com.google.common.collect.ImmutableMap;
+import com.sun.rowset.JdbcRowSetImpl;
 import io.eventuate.common.eventuate.local.BinLogEvent;
 import io.eventuate.common.eventuate.local.BinlogFileOffset;
 import io.eventuate.common.jdbc.EventuateSchema;
@@ -9,9 +10,12 @@ import io.eventuate.coordination.leadership.LeaderSelectorFactory;
 import io.eventuate.local.common.*;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import javax.sql.rowset.JdbcRowSet;
+import com.sun.rowset.JdbcRowSetImpl;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 
 import javax.sql.DataSource;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -175,33 +179,43 @@ public class PollingDao extends BinlogEntryReader {
 
   private String queryPrimaryKey(BinlogEntryHandler handler) throws SQLException {
     String pk;
-    Connection connection = null;
-    try {
-      connection = dataSource.getConnection();
-      ResultSet resultSet = connection
-              .getMetaData()
-              .getPrimaryKeys(null,
-                      handler.getSchemaAndTable().getSchema(),
-                      handler.getSchemaAndTable().getTableName());
+//    Connection connection = null;
+//    try {
+//      String dbName=handler.getSchemaAndTable().getSchema();
+//      connection = dataSource.getConnection();
+//      JdbcRowSet jrs=new JdbcRowSetImpl(connection);
+//      jrs.setCommand("use "+dbName);
+//      jrs.execute();
+//      String sql=String.format("SELECT column_name FROM INFORMATION_SCHEMA.`KEY_COLUMN_USAGE` WHERE table_name='%s' AND constraint_name='PRIMARY'","message");
+//      jrs.setCommand(sql);
+//      jrs.execute();
+//
+//
+//      ResultSet resultSet = connection
+//              .getMetaData()
+//              .getPrimaryKeys(null,
+//                      handler.getSchemaAndTable().getSchema(),
+//                      handler.getSchemaAndTable().getTableName());
+//
+//      if (resultSet.next()) {
+//        pk = resultSet.getString("COLUMN_NAME");
+//        if (resultSet.next()) {
+//          throw new RuntimeException("Table %s has more than one primary key");
+//        }
+//      } else {
+//        throw new RuntimeException("Cannot get table: result set is empty");
+//      }
+//    } finally {
+//      try {
+//        if (connection != null) {
+//          connection.close();
+//        }
+//      } catch (SQLException e) {
+//        logger.warn(e.getMessage(), e);
+//      }
+//    }
 
-      if (resultSet.next()) {
-        pk = resultSet.getString("COLUMN_NAME");
-        if (resultSet.next()) {
-          throw new RuntimeException("Table %s has more than one primary key");
-        }
-      } else {
-        throw new RuntimeException("Cannot get table: result set is empty");
-      }
-    } finally {
-      try {
-        if (connection != null) {
-          connection.close();
-        }
-      } catch (SQLException e) {
-        logger.warn(e.getMessage(), e);
-      }
-    }
-
+    pk="id";
     return pk;
   }
 
