@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Import;
 //@EnableAutoConfiguration(exclude = {DataSourceAutoConfiguration.class,
 //        DataSourceTransactionManagerAutoConfiguration.class,
 //        RedisAutoConfiguration.class})
-@Import({DruidConfig.class})
+//@Import({DruidConfig.class})
 public class EventuateCdcServiceMain {
 
   public static void main(String[] args) {
