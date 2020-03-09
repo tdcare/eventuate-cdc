@@ -1,9 +1,11 @@
 package io.eventuate.local.unified.cdc.pipeline.common.factory;
 
+import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.alibaba.druid.pool.DruidDataSource;
 import io.eventuate.coordination.leadership.LeaderSelectorFactory;
 import io.eventuate.local.common.BinlogEntryReader;
+import io.eventuate.local.common.ConnectionPoolConfigurationProperties;
 import io.eventuate.local.unified.cdc.pipeline.common.BinlogEntryReaderProvider;
 import io.eventuate.local.unified.cdc.pipeline.common.properties.CdcPipelineReaderProperties;
 import io.eventuate.local.unified.cdc.pipeline.common.properties.PoolConfigProperties;
@@ -11,6 +13,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 abstract public class CommonCdcPipelineReaderFactory<PROPERTIES extends CdcPipelineReaderProperties, READER extends BinlogEntryReader>
         implements CdcPipelineReaderFactory<PROPERTIES, READER> {
@@ -18,20 +21,24 @@ abstract public class CommonCdcPipelineReaderFactory<PROPERTIES extends CdcPipel
   protected MeterRegistry meterRegistry;
   protected LeaderSelectorFactory leaderSelectorFactory;
   protected BinlogEntryReaderProvider binlogEntryReaderProvider;
+
   @Autowired
   PoolConfigProperties poolConfigProperties;
 
   public CommonCdcPipelineReaderFactory(MeterRegistry meterRegistry,
                                         LeaderSelectorFactory leaderSelectorFactory,
-                                        BinlogEntryReaderProvider binlogEntryReaderProvider) {
+                                        BinlogEntryReaderProvider binlogEntryReaderProvider,
+                                        ConnectionPoolConfigurationProperties connectionPoolConfigurationProperties) {
     this.meterRegistry = meterRegistry;
     this.leaderSelectorFactory = leaderSelectorFactory;
     this.binlogEntryReaderProvider = binlogEntryReaderProvider;
+    this.connectionPoolConfigurationProperties = connectionPoolConfigurationProperties;
   }
 
   public abstract READER create(PROPERTIES cdcPipelineReaderProperties);
 
   protected DataSource createDataSource(PROPERTIES properties) {
+
     DataSource dataSource=null;
 if(poolConfigProperties.getName()!=null && "hikari".equals(poolConfigProperties.getName())) {
   HikariDataSource hikariDataSource = new HikariDataSource();
@@ -41,7 +48,6 @@ if(poolConfigProperties.getName()!=null && "hikari".equals(poolConfigProperties.
   hikariDataSource.setDriverClassName(properties.getDataSourceDriverClassName());
   hikariDataSource.setConnectionTestQuery("select 1");
 }
-
     if (poolConfigProperties.getName()!=null && "druid".equals(poolConfigProperties.getName())) {
       DruidDataSource druidDataSource = new DruidDataSource();
 
@@ -67,7 +73,6 @@ if(poolConfigProperties.getName()!=null && "hikari".equals(poolConfigProperties.
       } catch (Exception e) {
       }
 
-
       druidDataSource.setMaxPoolPreparedStatementPerConnectionSize(poolConfigProperties.getMaxPoolPreparedStatementPerConnectionSize());
 //    Properties properties1=new Properties();
 //    properties1.set
@@ -81,8 +86,6 @@ if(poolConfigProperties.getName()!=null && "hikari".equals(poolConfigProperties.
 
       dataSource = druidDataSource;
     }
-
-
 
     return dataSource;
   }

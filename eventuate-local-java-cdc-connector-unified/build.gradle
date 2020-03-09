@@ -9,6 +9,7 @@ dependencies {
     compile "com.alibaba:druid:1.1.9"
 
     testCompile "junit:junit:4.11"
+    testCompile "com.h2database:h2:1.4.199"
     testCompile "org.springframework.boot:spring-boot-starter-test:$springBootCdcVersion"
 }
 

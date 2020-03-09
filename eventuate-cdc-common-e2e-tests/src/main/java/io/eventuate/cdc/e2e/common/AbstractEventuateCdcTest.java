@@ -15,6 +15,9 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 public abstract class AbstractEventuateCdcTest {
 
   protected String subscriberId = generateId();
@@ -32,16 +35,18 @@ public abstract class AbstractEventuateCdcTest {
   @Test
   public void insertToEventTableAndWaitEventInBroker() throws Exception {
     String destination = generateId();
-    String data = generateId();
+    String data = generateId() + getClass().getName();
 
     BlockingQueue<String> blockingQueue = new LinkedBlockingDeque<>();
 
-    saveEvent(data, destination, new EventuateSchema(EventuateSchema.DEFAULT_SCHEMA));
     createConsumer(destination, blockingQueue::add);
+    saveEvent(data, destination, new EventuateSchema(EventuateSchema.DEFAULT_SCHEMA));
 
     Eventually.eventually(120, 500, TimeUnit.MILLISECONDS, () -> {
       try {
-        Assert.assertTrue(blockingQueue.poll(100, TimeUnit.MILLISECONDS).contains(data));
+        String m = blockingQueue.poll(100, TimeUnit.MILLISECONDS);
+        assertNotNull(m);
+        assertTrue(m.contains(data));
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
