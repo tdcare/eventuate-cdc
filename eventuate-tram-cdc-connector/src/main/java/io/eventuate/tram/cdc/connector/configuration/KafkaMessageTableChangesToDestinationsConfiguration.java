@@ -1,8 +1,9 @@
 package io.eventuate.tram.cdc.connector.configuration;
 
 import io.eventuate.cdc.producer.wrappers.DataProducerFactory;
-import io.eventuate.cdc.producer.wrappers.EventuateKafkaDataProducerWrapper;
+import io.eventuate.cdc.producer.wrappers.kafka.EventuateKafkaDataProducerWrapper;
 import io.eventuate.local.common.DuplicatePublishingDetector;
+import io.eventuate.local.common.EventuateConfigurationProperties;
 import io.eventuate.local.common.PublishingFilter;
 import io.eventuate.local.db.log.common.DatabaseOffsetKafkaStore;
 import io.eventuate.local.mysql.binlog.DebeziumBinlogOffsetKafkaStore;
@@ -11,20 +12,22 @@ import io.eventuate.local.unified.cdc.pipeline.dblog.common.factory.OffsetStoreF
 import io.eventuate.local.unified.cdc.pipeline.dblog.mysqlbinlog.factory.DebeziumOffsetStoreFactory;
 import io.eventuate.messaging.kafka.basic.consumer.EventuateKafkaConsumerConfigurationProperties;
 import io.eventuate.messaging.kafka.common.EventuateKafkaConfigurationProperties;
-import io.eventuate.messaging.kafka.common.EventuateKafkaPropertiesConfiguration;
+import io.eventuate.messaging.kafka.spring.basic.consumer.EventuateKafkaConsumerSpringConfigurationPropertiesConfiguration;
+import io.eventuate.messaging.kafka.spring.common.EventuateKafkaPropertiesConfiguration;
 import io.eventuate.messaging.kafka.producer.EventuateKafkaProducer;
 import io.eventuate.messaging.kafka.producer.EventuateKafkaProducerConfigurationProperties;
+import io.eventuate.messaging.kafka.spring.producer.EventuateKafkaProducerSpringConfigurationPropertiesConfiguration;
 import io.eventuate.tram.cdc.connector.configuration.condition.KafkaCondition;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@EnableConfigurationProperties({EventuateKafkaProducerConfigurationProperties.class,
-        EventuateKafkaConsumerConfigurationProperties.class})
-@Import(EventuateKafkaPropertiesConfiguration.class)
+@Import({EventuateKafkaPropertiesConfiguration.class,
+        EventuateKafkaProducerSpringConfigurationPropertiesConfiguration.class,
+        EventuateKafkaConsumerSpringConfigurationPropertiesConfiguration.class})
 @Conditional(KafkaCondition.class)
 public class KafkaMessageTableChangesToDestinationsConfiguration {
   @Bean
@@ -36,9 +39,14 @@ public class KafkaMessageTableChangesToDestinationsConfiguration {
 
   @Bean
   public DataProducerFactory kafkaDataProducerFactory(EventuateKafkaConfigurationProperties eventuateKafkaConfigurationProperties,
-                                                      EventuateKafkaProducerConfigurationProperties eventuateKafkaProducerConfigurationProperties) {
+                                                      EventuateKafkaProducerConfigurationProperties eventuateKafkaProducerConfigurationProperties,
+                                                      EventuateConfigurationProperties eventuateConfigurationProperties,
+                                                      MeterRegistry meterRegistry) {
     return () -> new EventuateKafkaDataProducerWrapper(new EventuateKafkaProducer(eventuateKafkaConfigurationProperties.getBootstrapServers(),
-            eventuateKafkaProducerConfigurationProperties));
+            eventuateKafkaProducerConfigurationProperties),
+            eventuateConfigurationProperties.isEnableBatchProcessing(),
+            eventuateConfigurationProperties.getMaxBatchSize(),
+            meterRegistry);
   }
 
   @Bean

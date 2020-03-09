@@ -1,5 +1,6 @@
 package io.eventuate.local.cdc.debezium.migration;
 
+import io.eventuate.common.common.spring.jdbc.EventuateSpringJdbcStatementExecutor;
 import io.eventuate.common.jdbc.EventuateCommonJdbcOperations;
 import io.eventuate.common.jdbc.EventuateSchema;
 import io.eventuate.messaging.kafka.basic.consumer.EventuateKafkaConsumer;
@@ -7,6 +8,7 @@ import io.eventuate.messaging.kafka.basic.consumer.EventuateKafkaConsumerConfigu
 import io.eventuate.messaging.kafka.basic.consumer.EventuateKafkaConsumerMessageHandler;
 import io.eventuate.messaging.kafka.basic.consumer.MessageConsumerBacklog;
 import io.eventuate.messaging.kafka.common.EventuateKafkaConfigurationProperties;
+import io.eventuate.messaging.kafka.common.EventuateKafkaMultiMessageConverter;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.Assert;
 import org.junit.Before;
@@ -39,7 +41,7 @@ public abstract class AbstractE2EMigrationTest {
 
   @Before
   public void init() {
-    eventuateCommonJdbcOperations = new EventuateCommonJdbcOperations(jdbcTemplate);
+    eventuateCommonJdbcOperations = new EventuateCommonJdbcOperations(new EventuateSpringJdbcStatementExecutor(jdbcTemplate));
   }
 
   protected void subscribe(Handler handler) {
@@ -76,9 +78,11 @@ public abstract class AbstractE2EMigrationTest {
   protected static class Handler implements EventuateKafkaConsumerMessageHandler {
     private BlockingQueue<String> events = new LinkedBlockingQueue<>();
 
+    private EventuateKafkaMultiMessageConverter eventuateKafkaMultiMessageConverter = new EventuateKafkaMultiMessageConverter();
+
     @Override
-    public MessageConsumerBacklog apply(ConsumerRecord<String, String> record, BiConsumer<Void, Throwable> consumer) {
-      events.add(record.value());
+    public MessageConsumerBacklog apply(ConsumerRecord<String, byte[]> record, BiConsumer<Void, Throwable> consumer) {
+      events.addAll(eventuateKafkaMultiMessageConverter.convertBytesToValues(record.value()));
       consumer.accept(null, null);
       return null;
     }

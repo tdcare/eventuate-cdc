@@ -19,7 +19,9 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
 
 public class PollingDao extends BinlogEntryReader {
   private static final String PUBLISHED_FIELD = "published";
@@ -32,7 +34,6 @@ public class PollingDao extends BinlogEntryReader {
   private int pollingIntervalInMilliseconds;
   private Map<SchemaAndTable, String> pkFields = new HashMap<>();
   private EventuateSqlDialect eventuateSqlDialect;
-
   private PollingProcessingStatusService pollingProcessingStatusService;
 
   public PollingDao(MeterRegistry meterRegistry,
@@ -79,6 +80,7 @@ public class PollingDao extends BinlogEntryReader {
 
   @Override
   public void start() {
+    logger.info("Starting PollingDao");
     super.start();
 
     stopCountDownLatch = new CountDownLatch(1);
@@ -102,6 +104,7 @@ public class PollingDao extends BinlogEntryReader {
     }
 
     stopCountDownLatch.countDown();
+    logger.info("PollingDao finished processing");
   }
 
   public int processEvents(BinlogEntryHandler handler) {
@@ -116,42 +119,54 @@ public class PollingDao extends BinlogEntryReader {
             () -> namedParameterJdbcTemplate.queryForRowSet(findEventsQuery, ImmutableMap.of("limit", maxEventsPerPolling)),
             this::onInterrupted,
             running);
-
-    List<Object> ids = new ArrayList<>();
+    List<CompletableFuture<Object>> ids = new ArrayList<>();
 
     while (sqlRowSet.next()) {
-      ids.add(sqlRowSet.getObject(pk));
-
-      handler.publish(new BinlogEntry() {
-        @Override
-        public Object getColumn(String name) {
-          return sqlRowSet.getObject(name);
-        }
-
-        @Override
-        public BinlogFileOffset getBinlogFileOffset() {
-          return null;
-        }
-      });
-
+      Object id = sqlRowSet.getObject(pk);
+      ids.add(handleEvent(id, handler, sqlRowSet));
       onEventReceived();
     }
 
-    if (ids.isEmpty())
-      onActivity();
-    else {
-
-      String markEventsAsReadQuery = String.format("UPDATE %s SET %s = 1 WHERE %s in (:ids)",
-              handler.getQualifiedTable(), PUBLISHED_FIELD, pk);
-
-      DaoUtils.handleConnectionLost(maxAttemptsForPolling,
-              pollingRetryIntervalInMilliseconds,
-              () -> namedParameterJdbcTemplate.update(markEventsAsReadQuery, ImmutableMap.of("ids", ids)),
-              this::onInterrupted,
-              running);
+    if (!ids.isEmpty()) {
+      markEventsAsProcessed(ids, pk, handler);
     }
 
+    onActivity();
+
     return ids.size();
+  }
+
+  private void markEventsAsProcessed(List<CompletableFuture<Object>> eventIds, String pk, BinlogEntryHandler handler) {
+    List<Object> ids = eventIds
+            .stream()
+            .map(CompletableFutureUtil::get)
+            .collect(Collectors.toList());
+
+    String markEventsAsReadQuery = String.format("UPDATE %s SET %s = 1 WHERE %s in (:ids)",
+            handler.getQualifiedTable(), PUBLISHED_FIELD, pk);
+
+    DaoUtils.handleConnectionLost(maxAttemptsForPolling,
+            pollingRetryIntervalInMilliseconds,
+            () -> namedParameterJdbcTemplate.update(markEventsAsReadQuery, ImmutableMap.of("ids", ids)),
+            this::onInterrupted,
+            running);
+  }
+
+
+  private CompletableFuture<Object> handleEvent(Object id, BinlogEntryHandler handler, SqlRowSet sqlRowSet) {
+    CompletableFuture<?> future = handler.publish(new BinlogEntry() {
+      @Override
+      public Object getColumn(String name) {
+        return sqlRowSet.getObject(name);
+      }
+
+      @Override
+      public BinlogFileOffset getBinlogFileOffset() {
+        return null;
+      }
+    });
+
+    return future.thenApply(o -> id);
   }
 
   private String getPrimaryKey(BinlogEntryHandler handler) {

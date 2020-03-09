@@ -1,9 +1,12 @@
 package io.eventuate.local.test.util;
 
+import io.eventuate.common.common.spring.jdbc.EventuateSpringJdbcStatementExecutor;
 import io.eventuate.common.eventuate.local.BinlogFileOffset;
 import io.eventuate.common.eventuate.local.PublishedEvent;
 import io.eventuate.common.jdbc.EventuateCommonJdbcOperations;
 import io.eventuate.common.jdbc.EventuateSchema;
+import io.eventuate.messaging.kafka.common.EventuateKafkaMultiMessage;
+import io.eventuate.messaging.kafka.common.EventuateKafkaMultiMessageConverter;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -31,9 +34,11 @@ public class TestHelper {
 
   private EventuateCommonJdbcOperations eventuateCommonJdbcOperations;
 
+  private EventuateKafkaMultiMessageConverter eventuateKafkaMultiMessageConverter = new EventuateKafkaMultiMessageConverter();
+
   @PostConstruct
   public void init() {
-    eventuateCommonJdbcOperations = new EventuateCommonJdbcOperations(jdbcTemplate);
+    eventuateCommonJdbcOperations = new EventuateCommonJdbcOperations(new EventuateSpringJdbcStatementExecutor(jdbcTemplate));
   }
 
   public String getEventTopicName() {
@@ -83,7 +88,7 @@ public class TestHelper {
     return new KafkaProducer<>(props);
   }
 
-  public KafkaConsumer<String, String> createConsumer(String bootstrapServers) {
+  public KafkaConsumer<String, byte[]> createConsumer(String bootstrapServers) {
     Properties props = new Properties();
     props.put("bootstrap.servers", bootstrapServers);
     props.put("auto.offset.reset", "earliest");
@@ -92,7 +97,7 @@ public class TestHelper {
     props.put("auto.commit.interval.ms", "1000");
     props.put("session.timeout.ms", "30000");
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-    props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+    props.put("value.deserializer", "org.apache.kafka.common.serialization.ByteArrayDeserializer");
 
     return new KafkaConsumer<>(props);
   }
@@ -105,6 +110,10 @@ public class TestHelper {
     String eventId = generateId();
     String entityId = generateId();
 
+    return saveEvent(entityType, eventType, eventData, eventId, entityId, eventuateSchema);
+  }
+
+  public EventIdEntityId saveEvent(String entityType, String eventType, String eventData, String eventId, String entityId, EventuateSchema eventuateSchema) {
     eventuateCommonJdbcOperations.insertIntoEventsTable(eventId,
             entityId,
             eventData,
@@ -154,13 +163,28 @@ public class TestHelper {
     throw new RuntimeException("event not found: " + eventId);
   }
 
-  public void waitForEventInKafka(KafkaConsumer<String, String> consumer, String entityId, LocalDateTime deadline) {
+  public void waitForEventInKafka(KafkaConsumer<String, byte[]> consumer, String entityId, LocalDateTime deadline) {
     while (LocalDateTime.now().isBefore(deadline)) {
       long millis = ChronoUnit.MILLIS.between(LocalDateTime.now(), deadline);
-      ConsumerRecords<String, String> records = consumer.poll(millis);
+      ConsumerRecords<String, byte[]> records = consumer.poll(millis);
       if (!records.isEmpty()) {
-        for (ConsumerRecord<String, String> record : records) {
-          if (record.key().equals(entityId)) {
+        for (ConsumerRecord<String, byte[]> record : records) {
+
+          Optional<String> entity;
+          if (eventuateKafkaMultiMessageConverter.isMultiMessage(record.value())) {
+            entity = eventuateKafkaMultiMessageConverter
+                    .convertBytesToMessages(record.value())
+                    .getMessages()
+                    .stream()
+                    .map(EventuateKafkaMultiMessage::getKey)
+                    .filter(entityId::equals)
+                    .findAny();
+          }
+          else {
+            entity = Optional.of(record.key());
+          }
+
+          if (entity.isPresent()) {
             return;
           }
         }
