@@ -45,7 +45,34 @@ subprojects {
 
     repositories {
         mavenCentral()
+
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+        }
+
+        maven {
+            credentials {
+                username 'RSCkuC'
+                password 'zycz2M6hgM'
+            }
+            url 'https://repo.rdc.aliyun.com/repository/4996-release-bbQLyQ/'
+        }
+        maven {
+            credentials {
+                username 'RSCkuC'
+                password 'zycz2M6hgM'
+            }
+            url 'https://repo.rdc.aliyun.com/repository/4996-snapshot-B1DsL7/'
+        }
+
         jcenter()
+        maven {
+            url 'https://repo.spring.io/libs-milestone'
+        }
+        maven{
+            url 'https://repo.spring.io/milestone'
+        }
+
         eventuateMavenRepoUrl.split(',').each { repoUrl -> maven { url repoUrl } }
     }
 
