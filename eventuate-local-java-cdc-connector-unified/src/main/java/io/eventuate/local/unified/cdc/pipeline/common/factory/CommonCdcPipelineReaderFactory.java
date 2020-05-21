@@ -32,7 +32,7 @@ abstract public class CommonCdcPipelineReaderFactory<PROPERTIES extends CdcPipel
     this.meterRegistry = meterRegistry;
     this.leaderSelectorFactory = leaderSelectorFactory;
     this.binlogEntryReaderProvider = binlogEntryReaderProvider;
-    this.connectionPoolConfigurationProperties = connectionPoolConfigurationProperties;
+//    this.connectionPoolConfigurationProperties = connectionPoolConfigurationProperties;
   }
 
   public abstract READER create(PROPERTIES cdcPipelineReaderProperties);
