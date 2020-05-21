@@ -21,6 +21,7 @@ abstract public class CommonCdcPipelineReaderFactory<PROPERTIES extends CdcPipel
   protected MeterRegistry meterRegistry;
   protected LeaderSelectorFactory leaderSelectorFactory;
   protected BinlogEntryReaderProvider binlogEntryReaderProvider;
+  protected ConnectionPoolConfigurationProperties connectionPoolConfigurationProperties;
 
   @Autowired
   PoolConfigProperties poolConfigProperties;
